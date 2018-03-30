@@ -1,6 +1,68 @@
 import sys,os
 import curses
 from time import sleep
+import time
+import threading
+import hashlib
+import timeit
+from math import ceil
+
+
+
+def mineOne():
+    hashlib.sha256(os.urandom(10))
+
+
+class myThread (threading.Thread):
+    num = 0
+    speed = 0
+
+    def __init__(self, name):
+        threading.Thread.__init__(self)
+        self.name = name
+        self._stop_event = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def stopped(self):
+        return self._stop_event.is_set()
+
+    def getNum(self):
+        return self.num
+
+    def getSpeed(self):
+        return self.speed
+
+    def run(self):
+        print ("Starting " + self.name)
+
+        i = 1
+
+        while self.stopped() == False:
+            #print('Running..')
+
+            #t = timeit.timeit( 'hashlib.sha256(os.urandom(10))', number=1000)
+            t = timeit.timeit( 'mineOne()', setup="from __main__ import mineOne", number=10000)
+
+
+            if i % 100 == 0:
+                self.speed = ceil( ((1 / t) * 10000) / 1000 )
+
+            if i % 1000 == 0:
+                self.num = self.num + 1
+                i = 0
+
+            i += 1
+
+            #print(t)
+
+
+            #sleep(1)
+
+        print ("Exiting " + self.name)
+
+
 
 
 def start_x(width, text):
@@ -10,11 +72,10 @@ def start_x(width, text):
 
 
 
-def draw_menu(stdscr):
+def draw(stdscr):
     k = 0
     cursor_x = 0
     cursor_y = 0
-    i = 0
 
     # Clear and refresh the screen for a blank canvas
     stdscr.nodelay(True)
@@ -27,6 +88,9 @@ def draw_menu(stdscr):
     curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
     curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
 
+    thread1 = myThread("Thread-1")
+    thread1.start()
+
     # Loop where k is the last character pressed
     while (k != ord('q')):
 
@@ -37,11 +101,10 @@ def draw_menu(stdscr):
 
         # Declaration of strings
         title = "BogoCoin miner"[:width-1]
-        speed = "10.6 KH/s"[:width-1]
-        mined = "{} uBTC mined".format(i)[:width-1]
+        speed = "{} KH/s".format( thread1.getSpeed() )[:width-1]
+        mined = "{} uBOC mined".format( thread1.getNum() )[:width-1]
         statusbar = "Press 'q' to exit"
 
-        i = i + 1
 
         # Centering calculations
         start_y = int((height // 2) - 2) - 4
@@ -75,8 +138,12 @@ def draw_menu(stdscr):
 
         sleep(0.05)
 
+
+    thread1.stop()
+
+
 def main():
-    curses.wrapper(draw_menu)
+    curses.wrapper(draw)
 
 if __name__ == "__main__":
     main()
