@@ -1,7 +1,6 @@
-import sys,os
+import os
 import curses
 from time import sleep
-import time
 import threading
 import hashlib
 import timeit
@@ -9,11 +8,11 @@ from math import ceil
 
 
 
-def mineOne():
-    hashlib.sha256(os.urandom(10))
+def mineOneUnit():
+    hashlib.sha256(hashlib.sha256(os.urandom(10)).digest())
 
 
-class myThread (threading.Thread):
+class MinerThread (threading.Thread):
     num = 0
     speed = 0
 
@@ -28,57 +27,35 @@ class myThread (threading.Thread):
     def stopped(self):
         return self._stop_event.is_set()
 
-    def getNum(self):
-        return self.num
-
-    def getSpeed(self):
-        return self.speed
-
     def run(self):
-        print ("Starting " + self.name)
-
         i = 1
 
         while self.stopped() == False:
-            #print('Running..')
+            # Time execution of 10.000 units of work
+            t = timeit.timeit( 'mineOneUnit()', setup="from __main__ import mineOneUnit", number=10000)
 
-            #t = timeit.timeit( 'hashlib.sha256(os.urandom(10))', number=1000)
-            t = timeit.timeit( 'mineOne()', setup="from __main__ import mineOne", number=10000)
-
-
+            # Refersh speed
             if i % 100 == 0:
                 self.speed = ceil( ((1 / t) * 10000) / 1000 )
 
+            # Refresh number of uBOC
             if i % 1000 == 0:
                 self.num = self.num + 1
                 i = 0
 
             i += 1
 
-            #print(t)
-
-
-            #sleep(1)
-
-        print ("Exiting " + self.name)
-
-
-
 
 def start_x(width, text):
     return int((width // 2) - (len(text) // 2) - len(text) % 2)
 
 
-
-
-
 def draw(stdscr):
-    k = 0
-    cursor_x = 0
-    cursor_y = 0
+    key = 0
 
-    # Clear and refresh the screen for a blank canvas
+    # Setup
     stdscr.nodelay(True)
+    curses.curs_set(0)
     stdscr.clear()
     stdscr.refresh()
 
@@ -88,30 +65,26 @@ def draw(stdscr):
     curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
     curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
 
-    thread1 = myThread("Thread-1")
-    thread1.start()
+    minerThread = MinerThread("Thread-1")
+    minerThread.start()
 
-    # Loop where k is the last character pressed
-    while (k != ord('q')):
+    # Loop until 'q' is pressed
+    while (key != ord('q')):
 
         # Initialization
         stdscr.clear()
         height, width = stdscr.getmaxyx()
 
-
-        # Declaration of strings
-        title = "BogoCoin miner"[:width-1]
-        speed = "{} KH/s".format( thread1.getSpeed() )[:width-1]
-        mined = "{} uBOC mined".format( thread1.getNum() )[:width-1]
-        statusbar = "Press 'q' to exit"
-
-
         # Centering calculations
         start_y = int((height // 2) - 2) - 4
 
+        # Declaration of strings
+        title = "BogoCoin miner"[:width-1]
+        speed = "{} KH/s".format( minerThread.speed )[:width-1]
+        mined = "{} µBOC mined".format( minerThread.num )[:width-1]
+        statusbar = "Press 'q' to exit | Useless contribution by MooG"
 
-
-        # Render status bar
+        # Status bar
         stdscr.attron(curses.color_pair(3))
         stdscr.addstr(height-1, 0, statusbar)
         stdscr.addstr(height-1, len(statusbar), " " * (width - len(statusbar) - 1))
@@ -128,18 +101,14 @@ def draw(stdscr):
         stdscr.addstr(start_y + 2, (width // 2) - 2, '-' * 4)
         stdscr.addstr(start_y + 4, start_x(width, speed), speed)
         stdscr.addstr(start_y + 6, start_x(width, mined), mined)
-        stdscr.move(cursor_y, cursor_x)
 
-        # Refresh the screen
         stdscr.refresh()
-
-        # Wait for next input
-        k = stdscr.getch()
+        key = stdscr.getch()
 
         sleep(0.05)
 
 
-    thread1.stop()
+    minerThread.stop()
 
 
 def main():
